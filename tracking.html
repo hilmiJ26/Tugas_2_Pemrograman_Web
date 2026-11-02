@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tracking Delivery Order - SITTA UT</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <!-- Memuat CDN Vue.js versi 2 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.js"></script>
+  </head>
+
+  <body class="dashboard-page tracking-page">
+    <div id="app">
+      <header class="dashboard-header">
+        <div class="dashboard-brand">
+          <img
+            src="assets/ut.png"
+            alt="Logo Universitas Terbuka"
+            class="ut-logo"
+          />
+          <div>
+            <h1>SITTA UT</h1>
+            <p>Sistem Informasi Bahan Ajar Universitas Terbuka</p>
+          </div>
+        </div>
+        <a href="index.html" class="back-link">Kembali ke Beranda</a>
+      </header>
+
+      <main class="dashboard-container tracking-container">
+        <section class="welcome-section">
+          <h2>Tracking Pengiriman Delivery Order (DO)</h2>
+          <p>
+            Lacak status pengiriman bahan ajar atau tambahkan Delivery Order
+            baru.
+          </p>
+        </section>
+
+        <!-- Form Pencarian DO -->
+        <section class="stok-section tracking-search">
+          <h3>Cari Delivery Order Berdasarkan Nomor DO</h3>
+          <form @submit.prevent="cariDO" class="tracking-form">
+            <div class="form-group">
+              <label for="inputCariDO">Nomor DO</label>
+              <input
+                type="text"
+                id="inputCariDO"
+                v-model="keywordDO"
+                placeholder="Contoh: DO2025-0001"
+                autocomplete="off"
+                :class="{ 'is-invalid': pesanErrorCari }"
+              />
+            </div>
+            <button type="submit">Cari</button>
+          </form>
+          <p
+            id="pesanTracking"
+            v-if="pesanErrorCari"
+            class="pesan-error"
+            role="status"
+            style="margin-top: 10px"
+          >
+            {{ pesanErrorCari }}
+          </p>
+        </section>
+
+        <!-- Hasil Pencarian DO -->
+        <section
+          id="hasilTracking"
+          class="stok-section tracking-results"
+          v-if="selectedDOData"
+        >
+          <div class="status-pengiriman">
+            <h3>Status Pengiriman (No. DO: {{ selectedDOData.nomorDO }})</h3>
+            <p class="status-aktual">
+              Status saat ini: <strong>{{ selectedDOData.status }}</strong>
+            </p>
+          </div>
+
+          <div class="informasi-pengiriman">
+            <h3>Informasi Pengiriman</h3>
+            <div class="table-wrapper">
+              <table id="tabelTracking">
+                <tbody>
+                  <tr>
+                    <th scope="row">Nomor DO</th>
+                    <td>{{ selectedDOData.nomorDO }}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">NIM Mahasiswa</th>
+                    <td>{{ selectedDOData.nim }}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Nama Mahasiswa</th>
+                    <td>{{ selectedDOData.nama }}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Ekspedisi</th>
+                    <td>{{ selectedDOData.ekspedisi }}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Tanggal Kirim</th>
+                    <td>{{ selectedDOData.tanggalKirim }}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Kode Paket</th>
+                    <td>{{ selectedDOData.paket }}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Total Pembayaran</th>
+                    <td>
+                      Rp {{ Number(selectedDOData.total).toLocaleString('id-ID')
+                      }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Riwayat Perjalanan / Timeline -->
+          <div class="riwayat-perjalanan">
+            <h3>Riwayat Perjalanan</h3>
+            <div
+              class="timeline-perjalanan"
+              aria-label="Daftar riwayat perjalanan"
+            >
+              <div
+                class="timeline-item"
+                v-for="(p, index) in selectedDOData.perjalanan"
+                :key="index"
+              >
+                <div class="timeline-waktu">{{ p.waktu }}</div>
+                <div class="timeline-keterangan">{{ p.keterangan }}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Form Tambah Delivery Order Baru -->
+        <section class="stok-section" style="margin-top: 30px">
+          <h3>Tambah Delivery Order Baru</h3>
+          <form @submit.prevent="tambahDO" class="stok-form">
+            <div class="form-group">
+              <label>Nomor DO (Tergenerate Otomatis)</label>
+              <input
+                type="text"
+                :value="nextDONumber"
+                disabled
+                style="background: #e9ecef; font-weight: bold"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="nimBaru">NIM Mahasiswa</label>
+              <input
+                type="text"
+                id="nimBaru"
+                v-model="formDO.nim"
+                placeholder="Contoh: 012345678"
+                :class="{ 'is-invalid': errorsDO.nim }"
+              />
+              <small v-if="errorsDO.nim" class="invalid-feedback">
+                {{ errorsDO.nim }}
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="namaBaru">Nama Mahasiswa</label>
+              <input
+                type="text"
+                id="namaBaru"
+                v-model="formDO.nama"
+                placeholder="Contoh: Rina Wulandari"
+                :class="{ 'is-invalid': errorsDO.nama }"
+              />
+              <small v-if="errorsDO.nama" class="invalid-feedback">
+                {{ errorsDO.nama }}
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="ekspedisiBaru">Ekspedisi Pengiriman</label>
+              <select
+                id="ekspedisiBaru"
+                v-model="formDO.ekspedisi"
+                :class="{ 'is-invalid': errorsDO.ekspedisi }"
+              >
+                <option value="">Pilih Ekspedisi</option>
+                <option v-for="eksp in pengirimanList" :value="eksp.nama">
+                  {{ eksp.nama }}
+                </option>
+              </select>
+              <small v-if="errorsDO.ekspedisi" class="invalid-feedback">
+                {{ errorsDO.ekspedisi }}
+              </small>
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1">
+              <label for="paketBaru">Pilih Paket Bahan Ajar</label>
+              <select
+                id="paketBaru"
+                v-model="formDO.paketKode"
+                :class="{ 'is-invalid': errorsDO.paketKode }"
+                @change="onPaketChange"
+              >
+                <option value="">-- Pilih Paket Bahan Ajar --</option>
+                <option v-for="pkt in paket" :value="pkt.kode">
+                  {{ pkt.kode }} - {{ pkt.nama }} (Rp {{
+                  pkt.harga.toLocaleString('id-ID') }})
+                </option>
+              </select>
+              <small v-if="errorsDO.paketKode" class="invalid-feedback">
+                {{ errorsDO.paketKode }}
+              </small>
+            </div>
+
+            <!-- Detail Isi Paket (Muncul setelah paket dipilih) -->
+            <div
+              class="form-group"
+              v-if="selectedPaketDetail"
+              style="
+                grid-column: 1 / -1;
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+                border: 1px solid #dee2e6;
+              "
+            >
+              <label style="color: #174f8f; margin-bottom: 6px"
+                ><strong>Detail Isi Paket Bahan Ajar:</strong></label
+              >
+              <p style="margin: 0; font-size: 14px">
+                Nama Paket: <strong>{{ selectedPaketDetail.nama }}</strong>
+              </p>
+              <p style="margin: 4px 0 0; font-size: 14px">
+                Daftar Mata Kuliah / Modul:
+                <strong>{{ selectedPaketDetail.isi.join(', ') }}</strong>
+              </p>
+              <p style="margin: 4px 0 0; font-size: 14px">
+                Total Harga:
+                <strong
+                  >Rp {{ selectedPaketDetail.harga.toLocaleString('id-ID')
+                  }}</strong
+                >
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label for="tanggalBaru">Tanggal Kirim</label>
+              <input
+                type="date"
+                id="tanggalBaru"
+                v-model="formDO.tanggalKirim"
+                :class="{ 'is-invalid': errorsDO.tanggalKirim }"
+              />
+              <small v-if="errorsDO.tanggalKirim" class="invalid-feedback">
+                {{ errorsDO.tanggalKirim }}
+              </small>
+            </div>
+
+            <button type="submit" style="grid-column: 1 / -1">
+              Simpan Delivery Order Baru
+            </button>
+          </form>
+          <p
+            v-if="pesanSuksesDO"
+            class="pesan-sukses"
+            role="status"
+            style="margin-top: 12px"
+          >
+            {{ pesanSuksesDO }}
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <!-- Memuat file data dummy dan logika Vue tracking -->
+    <script src="js/dataBahanAjar.js"></script>
+    <script src="js/tracking-app.js"></script>
+  </body>
+</html>
